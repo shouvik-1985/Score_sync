@@ -2,11 +2,12 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { initializeApp } from "firebase/app";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { getAuth, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import axios from "@/services/axiosInstance";
 import { saveAuthData } from "@/services/auth";
 import { Toaster, toast } from "@/components/ui/sonner";
 
-// Firebase config (same as before)
+// Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyDM4P96ZUTRn-unirz1fZVRPJNByMAWdAc",
   authDomain: "scoresync-3ce4c.firebaseapp.com",
@@ -19,8 +20,9 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const storage = getStorage(app);
+const auth = getAuth(app);
 
-// Available games options (you can extend later easily)
+// Available games
 const gameOptions = [
   "Football",
   "Cricket",
@@ -47,7 +49,6 @@ const Register = () => {
     try {
       let profilePictureUrl = "";
 
-      // If user uploaded a profile picture, upload it to Firebase Storage
       if (profilePicture) {
         const storageRef = ref(storage, `profile_pictures/${username}_${Date.now()}`);
         await uploadBytes(storageRef, profilePicture);
@@ -81,13 +82,27 @@ const Register = () => {
     }
   };
 
+  const handleGoogleLogin = async () => {
+    const provider = new GoogleAuthProvider();
+    try {
+      const result = await signInWithPopup(auth, provider);
+      const idToken = await result.user.getIdToken();
+      const response = await axios.post("/google-signin/", { id_token: idToken });
+      saveAuthData(response.data.token, response.data);
+      toast.success("Google Sign-In successful!");
+      navigate("/dashboard");
+    } catch (error: any) {
+      console.error(error);
+      toast.error("Google Sign-In failed!");
+    }
+  };
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-center px-6 bg-gradient-to-br from-blue-50 to-white">
       <Toaster />
       <div className="w-full max-w-lg bg-white p-8 rounded-xl shadow-lg">
         <h1 className="text-3xl font-bold text-center text-gray-800 mb-6">Create an Account</h1>
 
-        {/* Registration Form */}
         <form onSubmit={handleRegister} className="flex flex-col gap-4">
           <input
             type="email"
@@ -128,7 +143,6 @@ const Register = () => {
             onChange={(e) => setBio(e.target.value)}
           />
 
-          {/* Games Selection */}
           <div className="flex flex-wrap gap-2">
             {gameOptions.map((game) => (
               <button
@@ -146,7 +160,6 @@ const Register = () => {
             ))}
           </div>
 
-          {/* Profile Picture Upload */}
           <input
             type="file"
             accept="image/*"
@@ -154,7 +167,6 @@ const Register = () => {
             onChange={(e) => setProfilePicture(e.target.files ? e.target.files[0] : null)}
           />
 
-          {/* Submit Button */}
           <button
             type="submit"
             className="w-full bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-lg font-semibold transition"
@@ -162,6 +174,23 @@ const Register = () => {
             Register
           </button>
         </form>
+
+        {/* Divider */}
+        <div className="flex items-center my-6">
+          <div className="flex-grow border-t"></div>
+          <span className="mx-3 text-gray-400">OR</span>
+          <div className="flex-grow border-t"></div>
+        </div>
+
+        {/* Google Sign-In */}
+        <button
+          onClick={handleGoogleLogin}
+          type="button"
+          className="w-full flex items-center justify-center gap-3 p-3 border border-gray-300 rounded-lg hover:bg-gray-100 transition"
+        >
+          <img src="https://img.icons8.com/color/48/000000/google-logo.png" alt="Google" className="w-6 h-6" />
+          <span className="font-medium text-gray-700">Sign in with Google</span>
+        </button>
       </div>
     </div>
   );
